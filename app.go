@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os/exec"
@@ -59,13 +60,13 @@ func DoDNSSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, "Record Updated")
+	respondWithJSON(w, http.StatusOK, "The alias ('A') record '"+nodeName+"."+zoneName+"' was successfully updated to '"+ipAddress+"'.")
 }
 
 // DoDNSRemove Remove
 func DoDNSRemove(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	zoneName, dnsType, nodeName, ipAddress := vars["zoneName"], vars["dnsType"], vars["nodeName"], vars["ipAddress"]
+	zoneName, dnsType, nodeName := vars["zoneName"], vars["dnsType"], vars["nodeName"]
 
 	// Validate DNS Type
 	if dnsType != "A" {
@@ -88,20 +89,14 @@ func DoDNSRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Ip Address
-	var validIPAddress = regexp.MustCompile(`^(([1-9]?\d|1\d\d|25[0-5]|2[0-4]\d)\.){3}([1-9]?\d|1\d\d|25[0-5]|2[0-4]\d)$`)
-
-	if !validIPAddress.MatchString(ipAddress) {
-		respondWithError(w, http.StatusBadRequest, "Invalid IP address ('"+ipAddress+"'). Currently, only IPv4 addresses are accepted.")
-		return
-	}
-
 	dnsCmdDeleteRecord := exec.Command("cmd", "/C", "dnscmd /recorddelete "+zoneName+" "+nodeName+" "+dnsType+" /f")
 
 	if err := dnsCmdDeleteRecord.Run(); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Could not run dnscmd /recorddelete")
 		return
 	}
+
+	respondWithJSON(w, http.StatusOK, "The alias ('A') record '"+nodeName+"."+zoneName+"' was successfully removed.")
 
 }
 
@@ -123,6 +118,8 @@ func main() {
 
 	r.Methods("GET").Path("/dns/{zoneName}/{dnsType}/{nodeName}/remove").HandlerFunc(DoDNSRemove)
 	r.Methods("POST").Path("/dns/{zoneName}/{dnsType}/{nodeName}/remove").HandlerFunc(DoDNSRemove)
+
+	fmt.Printf("Listening on port %d.\n", 3000)
 
 	if err := http.ListenAndServe(":3000", r); err != nil {
 		log.Fatal(err)
