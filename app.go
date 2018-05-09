@@ -19,6 +19,7 @@ func DoDNSSet(w http.ResponseWriter, r *http.Request) {
 	// Validate DNS Type
 	if dnsType != "A" {
 		respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "You specified an invalid record type ('" + dnsType + "'). Currently, only the 'A' (alias) record type is supported.  e.g. /dns/my.zone/A/.."})
+		return
 	}
 
 	// Validate DNS Type
@@ -45,7 +46,7 @@ func DoDNSSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dnsCmdDeleteRecord := exec.Command("dnscmd /recorddelete " + zoneName + " " + nodeName + " " + dnsType + " /f")
+	dnsCmdDeleteRecord := exec.Command("cmd", "/C", "dnscmd /recorddelete "+zoneName+" "+nodeName+" "+dnsType+" /f")
 
 	if err := dnsCmdDeleteRecord.Run(); err != nil {
 
@@ -56,14 +57,14 @@ func DoDNSSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dnsAddDeleteRecord := exec.Command("dnscmd /recordadd " + zoneName + " " + nodeName + " " + dnsType + " " + ipAddress)
+	dnsAddDeleteRecord := exec.Command("cmd", "/C", "dnscmd /recordadd "+zoneName+" "+nodeName+" "+dnsType+" "+ipAddress)
 
 	if err := dnsAddDeleteRecord.Run(); err != nil {
 		respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": err.Error()})
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, "The alias ('A') record '"+nodeName+"."+zoneName+"' was successfully updated to '"+ipAddress+"'.")
+	respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "The alias ('A') record '" + nodeName + "." + zoneName + "' was successfully updated to '" + ipAddress + "'."})
 }
 
 // DoDNSRemove Remove
@@ -74,6 +75,7 @@ func DoDNSRemove(w http.ResponseWriter, r *http.Request) {
 	// Validate DNS Type
 	if dnsType != "A" {
 		respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "You specified an invalid record type ('" + dnsType + "'). Currently, only the 'A' (alias) record type is supported.  e.g. /dns/my.zone/A/.."})
+		return
 	}
 
 	// Validate DNS Type
@@ -92,12 +94,14 @@ func DoDNSRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dnsCmdDeleteRecord := exec.Command("dnscmd /recorddelete " + zoneName + " " + nodeName + " " + dnsType + " /f")
+	dnsCmdDeleteRecord := exec.Command("cmd", "/C", "dnscmd /recorddelete "+zoneName+" "+nodeName+" "+dnsType+" /f")
 
 	if err := dnsCmdDeleteRecord.Run(); err != nil {
 		respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": err.Error()})
 		return
 	}
+
+	respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "The alias ('A') record '" + nodeName + "." + zoneName + "' was successfully removed."})
 }
 
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
@@ -125,9 +129,9 @@ func main() {
 	r.Methods("GET").Path("/dns/{zoneName}/{dnsType}/{nodeName}/remove").HandlerFunc(DoDNSRemove)
 	r.Methods("POST").Path("/dns/{zoneName}/{dnsType}/{nodeName}/remove").HandlerFunc(DoDNSRemove)
 
-	fmt.Printf("Listening on port %d.\n", 3000)
+	fmt.Printf("Listening on port %d.\n", 3111)
 
-	if err := http.ListenAndServe(":3000", r); err != nil {
+	if err := http.ListenAndServe(":3111", r); err != nil {
 		log.Fatal(err)
 	}
 }
