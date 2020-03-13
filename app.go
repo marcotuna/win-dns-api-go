@@ -49,10 +49,6 @@ func DoDNSSet(w http.ResponseWriter, r *http.Request) {
 	dnsCmdDeleteRecord := exec.Command("cmd", "/C", "dnscmd /recorddelete "+zoneName+" "+nodeName+" "+dnsType+" /f")
 
 	if err := dnsCmdDeleteRecord.Run(); err != nil {
-
-		//respondWithError(w, http.StatusBadRequest, "Could not run dnscmd /recorddelete")
-		//respondWithError(w, http.StatusBadRequest, err.Error())
-		//log.Fatalf("cmd.Run() failed with %s\n", err)
 		respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": err.Error()})
 		return
 	}
@@ -115,6 +111,10 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(response)
 }
 
+const (
+	serverPort = 3111
+)
+
 func main() {
 	r := mux.NewRouter()
 	r.NotFoundHandler = http.HandlerFunc(notFoundHandler)
@@ -129,9 +129,13 @@ func main() {
 	r.Methods("GET").Path("/dns/{zoneName}/{dnsType}/{nodeName}/remove").HandlerFunc(DoDNSRemove)
 	r.Methods("POST").Path("/dns/{zoneName}/{dnsType}/{nodeName}/remove").HandlerFunc(DoDNSRemove)
 
-	fmt.Printf("Listening on port %d.\n", 3111)
+	fmt.Printf("Listening on port %d.\n", serverPort)
 
-	if err := http.ListenAndServe(":3111", r); err != nil {
+	// Start HTTP Server
+	if err := http.ListenAndServe(
+		fmt.Sprintf(":%d", serverPort),
+		r,
+	); err != nil {
 		log.Fatal(err)
 	}
 }
