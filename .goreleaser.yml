@@ -1,0 +1,16 @@
+project_name: win-dns-api-go
+builds:
+  -
+    main: .
+    id: "win-dns-api-go"
+    binary: win-dns-api-go
+    env: [CGO_ENABLED=0]
+    goos:
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  -
+    format: binary
