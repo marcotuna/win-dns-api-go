@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os/exec"
 	"regexp"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -38,11 +39,25 @@ func DoDNSSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Ip Address
+	// Accept comma-separated IPs, validate each
 	var validIPAddress = regexp.MustCompile(`^(([1-9]?\d|1\d\d|25[0-5]|2[0-4]\d)\.){3}([1-9]?\d|1\d\d|25[0-5]|2[0-4]\d)$`)
 
-	if !validIPAddress.MatchString(ipAddress) {
-		respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid IP address ('" + ipAddress + "'). Currently, only IPv4 addresses are accepted."})
+	ipList := strings.Split(ipAddress, ",")
+	cleanedIPs := make([]string, 0, len(ipList))
+	for _, ip := range ipList {
+		ip = strings.TrimSpace(ip)
+		if ip == "" {
+			continue
+		}
+		if !validIPAddress.MatchString(ip) {
+			respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "Invalid IP address ('" + ip + "'). Currently, only IPv4 addresses are accepted."})
+			return
+		}
+		cleanedIPs = append(cleanedIPs, ip)
+	}
+
+	if len(cleanedIPs) == 0 {
+		respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "No valid IP addresses provided."})
 		return
 	}
 
@@ -53,14 +68,16 @@ func DoDNSSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dnsAddDeleteRecord := exec.Command("cmd", "/C", "dnscmd /recordadd "+zoneName+" "+nodeName+" "+dnsType+" "+ipAddress)
-
-	if err := dnsAddDeleteRecord.Run(); err != nil {
-		respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": err.Error()})
-		return
+	// Add each IP as a separate A record
+	for _, ip := range cleanedIPs {
+		dnsAddRecord := exec.Command("cmd", "/C", "dnscmd /recordadd "+zoneName+" "+nodeName+" "+dnsType+" "+ip)
+		if err := dnsAddRecord.Run(); err != nil {
+			respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": err.Error()})
+			return
+		}
 	}
 
-	respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "The alias ('A') record '" + nodeName + "." + zoneName + "' was successfully updated to '" + ipAddress + "'."})
+	respondWithJSON(w, http.StatusOK, map[string]string{"message": "The alias ('A') record '" + nodeName + "." + zoneName + "' was successfully updated to '" + strings.Join(cleanedIPs, ",") + "'."})
 }
 
 // DoDNSRemove Remove
@@ -97,7 +114,7 @@ func DoDNSRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusBadRequest, map[string]string{"message": "The alias ('A') record '" + nodeName + "." + zoneName + "' was successfully removed."})
+	respondWithJSON(w, http.StatusOK, map[string]string{"message": "The alias ('A') record '" + nodeName + "." + zoneName + "' was successfully removed."})
 }
 
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
